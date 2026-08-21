@@ -1,0 +1,16 @@
+allow zygote zygote_tmpfs:file execmod;
+allow zygote self:process execmem;
+
+allow drmserver drmserver_tmpfs:file execmod;
+allow drmserver self:process execmem;
+
+allow mediadrm mediadrm_tmpfs:file execmod;
+allow mediadrm self:process execmem;
+
+allow hal_drm_default hal_drm_default_tmpfs:file execmod;
+allow hal_drm_default self:process execmem;
+
+allow untrusted_app drm_service:service_manager find;
+
+allow system_server drm_service:service_manager find;
+allow system_server hal_drm_default:binder call;
