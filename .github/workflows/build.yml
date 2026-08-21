@@ -1,0 +1,74 @@
+name: Build mingdfm
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'README.md'
+      - '*.md'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: musl.cc/llvm-arm-linux-musleabihf:latest
+    strategy:
+      matrix:
+        arch: [arm64, arm]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up NDK
+      uses: nttld/setup-ndk@v1
+      with:
+        ndk-version: r26b
+
+    - name: Build ${{ matrix.arch }}
+      run: |
+        chmod +x build.sh
+        ./build.sh ${{ matrix.arch }}
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: mingdfm-${{ matrix.arch }}
+        path: zygisk/${{ matrix.arch }}/*.so
+
+  pack:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Download Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: zygisk
+
+    - name: Prepare Module Structure
+      run: |
+        mkdir -p mingdfm/zygisk
+        cp -r module.prop customize.sh post-fs-data.sh service.sh boot-completed.sh sepolicy.rule zn_modules.txt README.md mingdfm/ 2>/dev/null || :
+        mkdir -p mingdfm/zygisk/arm64-v8a
+        mkdir -p mingdfm/zygisk/armeabi-v7a
+        cp zygisk/mingdfm-arm64/libmingdfm.so mingdfm/zygisk/arm64-v8a/libmingdfm.so
+        cp zygisk/mingdfm-arm/libmingdfm.so mingdfm/zygisk/armeabi-v7a/libmingdfm.so
+        touch mingdfm/zygisk/arm64-v8a/libmingdfm.so mingdfm/zygisk/armeabi-v7a/libmingdfm.so
+        rm -f mingdfm/README.md
+
+    - name: Create ZIP
+      run: |
+        cd mingdfm
+        zip -r9 ../mingdfm.zip ./*
+        cd ..
+
+    - name: Upload Final ZIP
+      uses: actions/upload-artifact@v4
+      with:
+        name: mingdfm_release
+        path: mingdfm.zip
+
